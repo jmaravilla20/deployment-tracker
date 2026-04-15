@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>2026 Deployment Tracker</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header>
+  <div class="header-content">
+    <h1>2026 Deployment Tracker</h1>
+    <div id="auth-section">
+      <button id="sign-in-btn" onclick="handleAuthClick()">Connect Google</button>
+      <span id="user-info"></span>
+    </div>
+  </div>
+  <nav>
+    <button class="nav-btn active" onclick="showView('weekly', this)">Weekly View</button>
+    <button class="nav-btn" onclick="showView('edit', this)">Edit &amp; Push</button>
+    <button class="nav-btn" onclick="showView('qa', this)">QA Client</button>
+    <button class="nav-btn" onclick="showView('tools', this)">Tools</button>
+  </nav>
+</header>
+
+<main>
+
+  <!-- Weekly View -->
+  <div id="weekly-view" class="view active">
+    <div class="view-header">
+      <h2>Weekly View</h2>
+      <div class="controls">
+        <label>Week of: <input type="date" id="week-date" onchange="renderWeeklyTable()"></label>
+        <input type="text" placeholder="Search..." oninput="filterTable('weekly-table', this.value)">
+      </div>
+    </div>
+    <div class="table-container">
+      <table id="weekly-table"><thead></thead><tbody><tr><td class="loading">Connect Google to load data</td></tr></tbody></table>
+    </div>
+  </div>
+
+  <!-- Edit & Push -->
+  <div id="edit-view" class="view">
+    <div class="view-header">
+      <h2>Edit &amp; Push to Salesforce</h2>
+      <div class="controls">
+        <input type="text" placeholder="Search accounts..." oninput="filterTable('edit-table', this.value)">
+        <span class="hint">Edit a row, save, then manually trigger the Salesforce connector</span>
+      </div>
+    </div>
+    <div class="table-container">
+      <table id="edit-table"><thead></thead><tbody><tr><td class="loading">Connect Google to load data</td></tr></tbody></table>
+    </div>
+  </div>
+
+  <!-- QA Client -->
+  <div id="qa-view" class="view">
+    <div class="view-header">
+      <h2>QA Client</h2>
+      <div class="controls">
+        <input type="text" id="qa-search" placeholder="Search by account name or client ID..." oninput="filterQA(this.value)">
+      </div>
+    </div>
+    <div id="qa-results"><p class="empty-hint">Type an account name to search</p></div>
+  </div>
+
+  <!-- Tools -->
+  <div id="tools-view" class="view">
+    <div class="tools-grid">
+      <div class="tool-card">
+        <h3>Slug Checker</h3>
+        <div class="slug-builder">
+          <input type="text" id="slug-input" placeholder="Enter landing page slug..." oninput="buildSlug()">
+          <select id="back-half" onchange="buildSlug()">
+            <option value="join">join</option>
+            <option value="choice">choice</option>
+            <option value="select">select</option>
+            <option value="getenso">getenso</option>
+          </select>
+          <div id="slug-result" class="slug-result"></div>
+        </div>
+      </div>
+      <div class="tool-card">
+        <h3>Logo Lookup</h3>
+        <input type="text" id="logo-search" placeholder="Search account name..." oninput="filterLogoTable(this.value)">
+        <div id="logo-results" class="logo-results"></div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- Edit Modal -->
+<div id="edit-modal" class="modal" style="display:none">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3 id="modal-title">Edit Record</h3>
+      <button onclick="closeModal()">&#x2715;</button>
+    </div>
+    <div id="modal-fields"></div>
+    <div class="modal-footer">
+      <button onclick="closeModal()">Cancel</button>
+      <button class="btn-primary" onclick="saveRecord()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://apis.google.com/js/api.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="app.js"></script>
+</body>
+</html>
