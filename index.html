@@ -11,10 +11,7 @@
 <header>
   <div class="header-content">
     <h1>2026 Deployment Tracker</h1>
-    <div id="auth-section">
-      <button id="sign-in-btn" onclick="handleAuthClick()">Connect Google</button>
-      <span id="user-info"></span>
-    </div>
+    <span id="status-badge" class="status-loading">Loading...</span>
   </div>
   <nav>
     <button class="nav-btn active" onclick="showView('weekly', this)">Weekly View</button>
@@ -36,7 +33,7 @@
       </div>
     </div>
     <div class="table-container">
-      <table id="weekly-table"><thead></thead><tbody><tr><td class="loading">Connect Google to load data</td></tr></tbody></table>
+      <table id="weekly-table"><thead></thead><tbody><tr><td class="loading">Loading data...</td></tr></tbody></table>
     </div>
   </div>
 
@@ -50,7 +47,7 @@
       </div>
     </div>
     <div class="table-container">
-      <table id="edit-table"><thead></thead><tbody><tr><td class="loading">Connect Google to load data</td></tr></tbody></table>
+      <table id="edit-table"><thead></thead><tbody><tr><td class="loading">Loading data...</td></tr></tbody></table>
     </div>
   </div>
 
@@ -106,8 +103,6 @@
   </div>
 </div>
 
-<script src="https://apis.google.com/js/api.js"></script>
-<script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="app.js"></script>
 </body>
 </html>
