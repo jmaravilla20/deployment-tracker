@@ -1,107 +1,64 @@
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
-// 1. Go to https://console.cloud.google.com
-// 2. Create a project → Enable "Google Sheets API"
-// 3. Credentials → Create OAuth 2.0 Client ID (Web application)
-// 4. Add your GitHub Pages URL to "Authorized JavaScript origins"
-// 5. Paste the Client ID below
-const CLIENT_ID      = 'YOUR_GOOGLE_OAUTH_CLIENT_ID';
-const SPREADSHEET_ID = '1sFRKFBoHlrqswqsOkEFXIzFPmWBjakQNv2Zb0jCoPzw';
-const SCOPES         = 'https://www.googleapis.com/auth/spreadsheets';
-
-const SHEETS = {
-  ACTIVITIES : 'Marketing Activities (DO NOT UPDATE)',
-  REFRESH    : 'REFRESH SHEET (SEND UPDATES TO SFDC)',
-  QA         : 'QA Week of',
-  LOGO       : 'LOGO'
-};
+// Paste your Apps Script Web App URL here after deploying Code.gs
+const API_URL = 'YOUR_APPS_SCRIPT_WEB_APP_URL';
 
 // ─── STATE ────────────────────────────────────────────────────────────────────
-let tokenClient;
-let allActivities = [];
-let allQA         = [];
-let allLogos      = [];
+let allActivities  = [];
+let allQA          = [];
+let allLogos       = [];
 let currentEditRow = null;
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 window.onload = () => {
   setDefaultWeekDate();
-  gapi.load('client', () => {
-    gapi.client.init({
-      discoveryDocs: ['https://sheets.googleapis.com/$discovery/rest?version=v4']
-    }).then(() => {
-      tokenClient = google.accounts.oauth2.initTokenClient({
-        client_id: CLIENT_ID,
-        scope: SCOPES,
-        callback: onTokenReceived
-      });
-      // Attempt silent sign-in (works if already logged into Google in browser)
-      tokenClient.requestAccessToken({ prompt: '' });
-    });
-  });
+  loadAllData();
 };
 
-function onTokenReceived(response) {
-  if (response.error) return;
-  document.getElementById('sign-in-btn').style.display = 'none';
-  document.getElementById('user-info').textContent = '● Connected';
-  loadAllData();
-}
-
-function handleAuthClick() {
-  tokenClient.requestAccessToken({ prompt: 'consent' });
+function setStatus(text, type) {
+  const el = document.getElementById('status-badge');
+  el.textContent = text;
+  el.className = 'status-' + type;
 }
 
 // ─── DATA LOADING ─────────────────────────────────────────────────────────────
 async function loadAllData() {
-  await Promise.all([loadActivities(), loadQAData(), loadLogoData()]);
+  setStatus('Loading...', 'loading');
+  try {
+    await Promise.all([loadActivities(), loadQAData(), loadLogoData()]);
+    setStatus('● Live', 'live');
+  } catch (err) {
+    setStatus('Error loading data', 'error');
+    console.error(err);
+  }
 }
 
-async function fetchSheet(sheetName) {
-  const res = await gapi.client.sheets.spreadsheets.values.get({
-    spreadsheetId: SPREADSHEET_ID,
-    range: `'${sheetName}'!A1:AZ5000`
-  });
-  return res.result.values || [];
+async function apiFetch(action) {
+  const res  = await fetch(`${API_URL}?action=${action}`);
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
+  return data;
 }
 
 async function loadActivities() {
-  const rows = await fetchSheet(SHEETS.ACTIVITIES);
-  if (!rows.length) return;
-  const headers = rows[0];
-  allActivities = rows.slice(1).map((row, i) => {
-    const obj = { _rowIndex: i + 2 };
-    headers.forEach((h, j) => { obj[h] = row[j] || ''; });
-    return obj;
-  });
+  allActivities = await apiFetch('activities');
   renderWeeklyTable();
   renderEditTable();
 }
 
 async function loadQAData() {
-  const rows = await fetchSheet(SHEETS.QA);
-  if (!rows.length) return;
-  const headers = rows[0];
-  allQA = rows.slice(1).map(row => {
-    const obj = {};
-    headers.forEach((h, j) => { obj[h] = row[j] || ''; });
-    return obj;
-  });
+  allQA = await apiFetch('qa');
 }
 
 async function loadLogoData() {
-  const rows = await fetchSheet(SHEETS.LOGO);
-  if (!rows.length) return;
-  const headers = rows[0];
-  allLogos = rows.slice(1)
-    .map(row => { const o = {}; headers.forEach((h,j) => o[h] = row[j]||''); return o; })
-    .filter(r => r['Account Name']);
+  const raw  = await apiFetch('logos');
+  allLogos   = raw.filter(r => r['Account Name']);
 }
 
 // ─── WEEKLY VIEW ──────────────────────────────────────────────────────────────
 const WEEKLY_COLS = [
-  'Account Name','Send Date','Touchpoint Type',
-  'Marketing Activity Status','Campaign Template Type',
-  'Marketing Activity Name','Enrollment Marketing Manager'
+  'Account Name', 'Send Date', 'Touchpoint Type',
+  'Marketing Activity Status', 'Campaign Template Type',
+  'Marketing Activity Name', 'Enrollment Marketing Manager'
 ];
 
 function setDefaultWeekDate() {
@@ -127,8 +84,8 @@ function renderWeeklyTable() {
 
 // ─── EDIT VIEW ────────────────────────────────────────────────────────────────
 const EDIT_COLS = [
-  'Account Name','Send Date','Marketing Activity Status',
-  'Touchpoint Type','Sender','Launch Date','Marketing Activity Name'
+  'Account Name', 'Send Date', 'Marketing Activity Status',
+  'Touchpoint Type', 'Sender', 'Launch Date', 'Marketing Activity Name'
 ];
 
 function renderEditTable() {
@@ -147,7 +104,7 @@ function buildTable(tableId, cols, data, editable) {
   </tr>`;
 
   if (!data.length) {
-    tbody.innerHTML = `<tr><td colspan="${cols.length + (editable?1:0)}" class="loading">No records for this period</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="${cols.length + (editable ? 1 : 0)}" class="loading">No records for this period</td></tr>`;
     return;
   }
 
@@ -163,10 +120,10 @@ function formatCell(col, val) {
   if (col === 'Marketing Activity Status') {
     const v = val || '';
     let cls = 'badge-default';
-    if (v.startsWith('Approved'))                         cls = 'badge-approved';
-    else if (v.startsWith('Awaiting'))                    cls = 'badge-awaiting';
-    else if (v.startsWith('Not Approved'))                cls = 'badge-rejected';
-    else if (v === 'Throttled' || v === 'Deployed')       cls = 'badge-throttled';
+    if      (v.startsWith('Approved'))    cls = 'badge-approved';
+    else if (v.startsWith('Awaiting'))    cls = 'badge-awaiting';
+    else if (v.startsWith('Not Approved'))cls = 'badge-rejected';
+    else if (v === 'Throttled' || v === 'Deployed') cls = 'badge-throttled';
     return `<span class="badge ${cls}">${v || '—'}</span>`;
   }
   return esc(val) || '—';
@@ -214,12 +171,12 @@ function openEditModal(index) {
 
   document.getElementById('modal-fields').innerHTML = EDITABLE_FIELDS.map(f => {
     const val = currentEditRow[f] || '';
-    const id  = 'field_' + f.replace(/\W/g,'_');
+    const id  = 'field_' + f.replace(/\W/g, '_');
     if (f === 'Marketing Activity Status') {
       return `<div class="modal-field">
         <label>${f}</label>
         <select id="${id}">
-          ${STATUS_OPTIONS.map(o => `<option${o===val?' selected':''}>${o}</option>`).join('')}
+          ${STATUS_OPTIONS.map(o => `<option${o === val ? ' selected' : ''}>${o}</option>`).join('')}
         </select>
       </div>`;
     }
@@ -243,44 +200,41 @@ function closeModal() {
 async function saveRecord() {
   if (!currentEditRow) return;
 
-  const refreshRows = await fetchSheet(SHEETS.REFRESH);
-  const headers     = refreshRows[0];
-  const actId       = currentEditRow['18 Digit Marketing Activity Id'];
-  const rowIdx      = refreshRows.findIndex((r, i) => i > 0 && r[0] === actId);
+  const activityId = currentEditRow['18 Digit Marketing Activity Id'];
+  const fields     = {};
 
-  if (rowIdx === -1) {
-    alert('Record not found in REFRESH SHEET. It may not have been synced from Salesforce yet.');
+  EDITABLE_FIELDS.forEach(f => {
+    const el = document.getElementById('field_' + f.replace(/\W/g, '_'));
+    if (el) fields[f] = el.value;
+  });
+
+  const params = new URLSearchParams({
+    action: 'update',
+    activityId,
+    fields: JSON.stringify(fields)
+  });
+
+  const res    = await fetch(`${API_URL}?${params}`);
+  const result = await res.json();
+
+  if (result.error) {
+    alert('Error: ' + result.error);
     return;
   }
 
-  const updatedRow = [...refreshRows[rowIdx]];
-  EDITABLE_FIELDS.forEach(f => {
-    const el  = document.getElementById('field_' + f.replace(/\W/g,'_'));
-    const col = headers.indexOf(f);
-    if (el && col >= 0) updatedRow[col] = el.value;
-  });
-
-  const range = `'${SHEETS.REFRESH}'!A${rowIdx + 1}`;
-  await gapi.client.sheets.spreadsheets.values.update({
-    spreadsheetId: SPREADSHEET_ID,
-    range,
-    valueInputOption: 'USER_ENTERED',
-    resource: { values: [updatedRow] }
-  });
-
   closeModal();
   await loadActivities();
-  alert('Saved to REFRESH SHEET. Trigger the Salesforce connector when ready.');
+  alert('Saved. Trigger the Salesforce connector when ready.');
 }
 
 // ─── QA VIEW ─────────────────────────────────────────────────────────────────
 const QA_FIELDS = [
-  'Campaign Template','Client Channel Restrictions','Approved for Custom Marketing',
-  'Email Sender','Contracting Partner (HCSC Combined)','Approved Programs',
-  'SMS Approved','Spanish CTA','Approved WPH Promo','Non-Cash Based Incentives Approved',
-  'Allows Marketing Incentives','Use First Name Personalization','Employee Reference',
-  'Eligibility Language (English)','Eligibility Language (Spanish)',
-  'References to Drugs or Surgery','Enso','Enrollment Marketing Manager','Client Success Lead'
+  'Campaign Template', 'Client Channel Restrictions', 'Approved for Custom Marketing',
+  'Email Sender', 'Contracting Partner (HCSC Combined)', 'Approved Programs',
+  'SMS Approved', 'Spanish CTA', 'Approved WPH Promo', 'Non-Cash Based Incentives Approved',
+  'Allows Marketing Incentives', 'Use First Name Personalization', 'Employee Reference',
+  'Eligibility Language (English)', 'Eligibility Language (Spanish)',
+  'References to Drugs or Surgery', 'Enso', 'Enrollment Marketing Manager', 'Client Success Lead'
 ];
 
 function filterQA(query) {
@@ -289,10 +243,10 @@ function filterQA(query) {
     results.innerHTML = '<p class="empty-hint">Type an account name or client ID to search</p>';
     return;
   }
-  const q = query.toLowerCase();
+  const q       = query.toLowerCase();
   const matches = allQA.filter(r =>
-    (r['Account Name']||'').toLowerCase().includes(q) ||
-    (r['Client ID(text)']||'').toLowerCase().includes(q)
+    (r['Account Name'] || '').toLowerCase().includes(q) ||
+    (r['Client ID(text)'] || '').toLowerCase().includes(q)
   );
   if (!matches.length) {
     results.innerHTML = '<p class="empty-hint">No accounts found</p>';
@@ -303,13 +257,13 @@ function filterQA(query) {
     return `<div class="qa-card">
       <div class="qa-card-header">
         ${logo ? `<img src="${logo}" class="qa-logo" onerror="this.style.display='none'" alt="">` : ''}
-        <h3>${esc(r['Account Name'])} <span class="qa-client-id">Client ID: ${esc(r['Client ID(text)']||'—')}</span></h3>
+        <h3>${esc(r['Account Name'])} <span class="qa-client-id">Client ID: ${esc(r['Client ID(text)'] || '—')}</span></h3>
       </div>
       <div class="qa-grid">
         ${QA_FIELDS.map(f => `
           <div class="qa-field">
             <label>${f}</label>
-            <span>${esc(r[f]||'—')}</span>
+            <span>${esc(r[f] || '—')}</span>
           </div>`).join('')}
       </div>
     </div>`;
@@ -330,9 +284,9 @@ function buildSlug() {
 function filterLogoTable(query) {
   const container = document.getElementById('logo-results');
   if (!query || query.length < 2) { container.innerHTML = ''; return; }
-  const q = query.toLowerCase();
+  const q       = query.toLowerCase();
   const matches = allLogos
-    .filter(r => (r['Account Name']||'').toLowerCase().includes(q))
+    .filter(r => (r['Account Name'] || '').toLowerCase().includes(q))
     .slice(0, 25);
 
   if (!matches.length) {
@@ -341,9 +295,9 @@ function filterLogoTable(query) {
   }
 
   const logoTypes = [
-    { key: 'Client Logo (single)', label: 'Single' },
-    { key: 'Approved Partner Logo (dual)', label: 'Dual' },
-    { key: 'Approved Partner Logo (tri)', label: 'Tri' }
+    { key: 'Client Logo (single)',          label: 'Single' },
+    { key: 'Approved Partner Logo (dual)',   label: 'Dual'   },
+    { key: 'Approved Partner Logo (tri)',    label: 'Tri'    }
   ];
 
   container.innerHTML = matches.flatMap(r =>
@@ -356,7 +310,7 @@ function filterLogoTable(query) {
             <div class="logo-name">${esc(r['Account Name'])} <span class="logo-type">(${t.label})</span></div>
             <div class="logo-url">${r[t.key]}</div>
           </div>
-          <button class="copy-btn" onclick="copyUrl(this, '${r[t.key].replace(/'/g,"\\'")}')">Copy URL</button>
+          <button class="copy-btn" onclick="copyUrl(this, '${r[t.key].replace(/'/g, "\\'")}')">Copy URL</button>
         </div>`)
   ).join('');
 }
